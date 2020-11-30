@@ -1,4 +1,4 @@
-# Bubble_tunnel_path_following_OCP_python
+# Bubble tunnel method for path following OCP
 
 ## Current code
  
