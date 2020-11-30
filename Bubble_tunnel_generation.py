@@ -122,8 +122,114 @@ def generate_bubbles(global_path,Bspline_obj,occupied_positions_x,occupied_posit
         shifted_feasiblebubbles_y.append(shifted_point[1] + shifted_radius*np.sin(ts))
         shifted_radii.append(shifted_radius)
         
-    return feasiblebubbles_x, feasiblebubbles_y, shifted_feasiblebubbles_x, shifted_feasiblebubbles_y, midpoints_x, midpoints_y, radii, shifted_midpoints_x, shifted_midpoints_y, shifted_radii
+    return feasiblebubbles_x, feasiblebubbles_y, shifted_feasiblebubbles_x,\
+        shifted_feasiblebubbles_y, midpoints_x, midpoints_y, radii, shifted_midpoints_x,\
+            shifted_midpoints_y, shifted_radii
 
 
+def plotting(initial_pos_x, end_goal_x, global_path, occupied_positions_x, occupied_positions_y,\
+             xlim_min, xlim_max, ylim_min, ylim_max,feasiblebubbles_x, feasiblebubbles_y,\
+             shifted_feasiblebubbles_x, shifted_feasiblebubbles_y, midpoints_x, midpoints_y, radii,\
+             shifted_midpoints_x, shifted_midpoints_y, shifted_radii):
+           
+    plt.figure()
+    plt.plot(np.linspace(initial_pos_x,end_goal_x,len(radii)), radii)
+    plt.plot(np.linspace(initial_pos_x,end_goal_x,len(radii)), shifted_radii)
+    plt.ylabel('radii magnitude in m')
+    plt.xlabel('x [m]')
+    plt.legend(['Before shifting','After shifting'])
+    plt.title('Radii of Bubbles before and after shifting the bubbles')
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(midpoints_x, midpoints_y, 'rx')
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.legend(['Global Reference Trajectory','Midpoints of the bubbles', 'Occupied Positions'])
+    plt.title('The feasible bubbles midpoints and the global trajectory')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([xlim_min,xlim_max])
+    plt.ylim([ylim_min,ylim_max])
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(midpoints_x, midpoints_y, 'rx',markersize= 3)
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.plot(feasiblebubbles_x, feasiblebubbles_y, 'yx', markersize= 0.5)
+    plt.legend(['original path','Midpoints', 'Occupied Positions', 'Feasible Bubbles'])
+    plt.title('The feasible Bubbles')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([xlim_min,xlim_max])
+    plt.ylim([ylim_min,ylim_max])
+    # plt.xlim([2.9,7.1])
+    # plt.ylim([-0.1,9])
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(shifted_midpoints_x, shifted_midpoints_y, 'rx',markersize= 3)
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.plot(shifted_feasiblebubbles_x, shifted_feasiblebubbles_y, 'g.', markersize= 0.2)
+    plt.legend(['original path','shifted Midpoints', 'Occupied Positions', 'shifted Feasible Bubbles'])
+    plt.title('The shifted feasible Bubbles')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([xlim_min,xlim_max])
+    plt.ylim([ylim_min,ylim_max])
+    # plt.xlim([2.9,7.1])
+    # plt.ylim([-0.1,9])
+    
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(midpoints_x, midpoints_y, 'rx',markersize= 3)
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.plot(feasiblebubbles_x, feasiblebubbles_y, 'yx', markersize= 0.5)
+    plt.legend(['original path','Midpoints', 'Occupied Positions', 'Feasible Bubbles'])
+    plt.title('The feasible Bubbles when the path crosses the wall')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([0.5,3.5])
+    plt.ylim([9,12])
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(midpoints_x, midpoints_y, 'rx',markersize= 3)
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.plot(feasiblebubbles_x, feasiblebubbles_y, 'yx', markersize= 0.5)
+    plt.legend(['original path','Midpoints', 'Occupied Positions', 'Feasible Bubbles'])
+    plt.title('The feasible Bubbles when the path is close to wall')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([3.5,5.5])
+    plt.ylim([-0.5,1])
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(midpoints_x, midpoints_y, 'rx',markersize= 5)
+    plt.plot(shifted_midpoints_x, shifted_midpoints_y, 'gx',markersize= 5)
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.plot(feasiblebubbles_x, feasiblebubbles_y, 'yx', markersize= 0.5)
+    plt.legend(['original path','Midpoints', 'Shifted Midpoints','Occupied Positions', 'Feasible Bubbles'])
+    plt.title('The feasible Bubbles when the path crosses the wall')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([2,5])
+    plt.ylim([-0.5,4])
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'b-')
+    plt.plot(midpoints_x, midpoints_y, 'rx',markersize= 5)
+    plt.plot(shifted_midpoints_x, shifted_midpoints_y, 'gx',markersize= 5)
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.legend(['original path','Midpoints', 'Shifted Midpoints','Occupied Positions', 'Feasible Bubbles'])
+    plt.title('The feasible Bubbles when the path crosses the wall')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([2.8,7])
+    plt.ylim([-0.2,5])
+        
+        
+        
     
     
