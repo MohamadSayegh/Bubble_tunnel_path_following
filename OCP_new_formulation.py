@@ -1,4 +1,5 @@
 """
+
 Created on Thu Nov 26
 
 Ninja Robot Thesis
@@ -33,6 +34,7 @@ from pylab import *
 from casadi import Function, linspace, vertcat, horzcat, DM, interpolant, sum1, MX, hcat, sumsqr
 from rockit import *
 from rockit import Ocp , FreeTime, MultipleShooting
+from Bubble_tunnel_generation import generate_bubbles
 
 
 #----------------------------------------------------------------------------#
@@ -90,127 +92,11 @@ global_path = interpolate.splev(u, Bspline_obj)
 #                           Creating the Bubbles                             #
 #----------------------------------------------------------------------------#
 
-npoints =  500  #numbr of points of every circle
-ts      =  np.linspace(0, 2*np.pi, npoints) #for creating circles points
-
-
-global_iteration_limit     = len(global_path[0])-1
-obstacles_iteration_limit  = len(occupied_positions_x)
-
-s                    = 0  #initial
-s_step               = 0.01 #the step in path parameter
-acceptable_radius    = 1
-
-#initialization of arrays
-point                       = []
-midpoints_x                 = []
-midpoints_y                 = []
-feasiblebubbles_x           = []
-feasiblebubbles_y           = []
-radii                       = []
-shifted_midpoints_x         = []
-shifted_midpoints_y         = []
-shifted_feasiblebubbles_x   = []
-shifted_feasiblebubbles_y   = []
-shifted_radii               = []
-
-#get the multiplier used for jumping between bubbles
-point_1  =  np.array(interpolate.splev(0.0           ,Bspline_obj))
-point_2  =  np.array(interpolate.splev(0.0 + s_step  ,Bspline_obj))
-dist     =  np.sqrt(np.sum(np.square(point_1 - point_2)))
-ref_dist =  s_step/dist
-
-
-while(s < 1): #iterate on all points of the path
     
-    midpoint_feasible = False
-    distance_obs = []
-    min_distance_obs = 0;
-    point = np.array(interpolate.splev(s, Bspline_obj)) #point on the path
-    
-    #--------------- for choosing the bubble radius
-    for obsi in range(0, obstacles_iteration_limit): #iterate on all obstacle points
-        
-        obspoint = np.array([occupied_positions_x[obsi],occupied_positions_y[obsi]]) #one obstacle point
-        distance_obs.append(np.sqrt(np.sum(np.square(point - obspoint))))  #eucledian distance
-        
-    obspoints = np.array([distance_obs, occupied_positions_x, occupied_positions_y]).T
-    sorted_obspoints = obspoints[np.argsort(obspoints[:, 0])]
-    
-    # the minimum distance becomes the radius of the bubble 
-    # can also attenuate with 0.9
-    radius = 0.9*sorted_obspoints[0][0]
-    
-    
-    #--------------- for choosing the next path parameter s
-    sp = s
-    new_point_inside_bubble = True
-    distance = 0
-    while new_point_inside_bubble:
-        sp = sp + 0.001
-        new_midpoint = np.array(interpolate.splev(sp, Bspline_obj))
-
-        if distance >= radius:
-            new_point_inside_bubble = False
-            s = sp
-            
-        distance = np.sqrt(np.sum(np.square(point - new_midpoint)))
-        
-                 
-    #--------------- for skipping unfeasible bubbles (behind the wall)
-    while not midpoint_feasible:
-        next_point = np.array(interpolate.splev(s, Bspline_obj))
-        inside_x = np.where((occupied_positions_x > point[0]) & (occupied_positions_x < next_point[0]))
-        
-        if np.size(inside_x) != 0:
-            occ_y = occupied_positions_y[inside_x]
-            inside_y = np.where((occ_y > point[1]) & (occ_y < next_point[1]))
-            
-            if np.size(inside_y) != 0:
-                s = s + s_step
-            else:
-                midpoint_feasible = True
-        else: 
-            midpoint_feasible = True
-
-    
-    #---------------- for shifting the midpoints
-    shifted_radius = radius
-    shifted_point = point
-    distance_obs_2 = []
-    if radius < acceptable_radius:
-
-        obspoint    = sorted_obspoints[0][1:3] #the closest obstalce
-        deltax      = (point[0] - obspoint[0])
-        deltay      = (point[1] - obspoint[1])
-        new_point   = np.array( [point[0] + deltax , point[1] + deltay ])
-        
-        for obsi in range(0, obstacles_iteration_limit): #iterate on all obstacle points
-            obspoint = np.array([occupied_positions_x[obsi],occupied_positions_y[obsi]])
-            distance_obs_2.append(np.sqrt(np.sum(np.square(new_point - obspoint))))   
-            new_radius = np.sort(distance_obs_2)[0]
-        
-        if new_radius >= radius:
-            shifted_radius = new_radius
-            shifted_point  = new_point
-
-                
-        
-                
-    midpoints_x.append(point[0]) #the point becomes the midpoint of the bubble
-    midpoints_y.append(point[1])
-    feasiblebubbles_x.append(point[0] + radius*np.cos(ts))
-    feasiblebubbles_y.append(point[1] + radius*np.sin(ts))
-    radii.append(radius)
-    
-    shifted_midpoints_x.append(shifted_point[0]) #the point becomes the midpoint of the bubble
-    shifted_midpoints_y.append(shifted_point[1])
-    shifted_feasiblebubbles_x.append(shifted_point[0] + shifted_radius*np.cos(ts))
-    shifted_feasiblebubbles_y.append(shifted_point[1] + shifted_radius*np.sin(ts))
-    shifted_radii.append(shifted_radius)
-    
-    
-
+feasiblebubbles_x, feasiblebubbles_y,shifted_feasiblebubbles_x,\
+shifted_feasiblebubbles_y,midpoints_x, midpoints_y, radii,\
+shifted_midpoints_x, shifted_midpoints_y, shifted_radii\
+= generate_bubbles(global_path,Bspline_obj,occupied_positions_x,occupied_positions_y)
 
       
 plt.figure()
@@ -241,10 +127,10 @@ plt.legend(['original path','Midpoints', 'Occupied Positions', 'Feasible Bubbles
 plt.title('The feasible Bubbles')
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
-# plt.xlim([xlim_min,xlim_max])
-# plt.ylim([ylim_min,ylim_max])
-plt.xlim([2.9,7.1])
-plt.ylim([-0.1,9])
+plt.xlim([xlim_min,xlim_max])
+plt.ylim([ylim_min,ylim_max])
+# plt.xlim([2.9,7.1])
+# plt.ylim([-0.1,9])
 
 plt.figure()
 plt.plot(global_path[0], global_path[1], 'b-')
@@ -255,10 +141,10 @@ plt.legend(['original path','shifted Midpoints', 'Occupied Positions', 'shifted 
 plt.title('The shifted feasible Bubbles')
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
-# plt.xlim([xlim_min,xlim_max])
-# plt.ylim([ylim_min,ylim_max])
-plt.xlim([2.9,7.1])
-plt.ylim([-0.1,9])
+plt.xlim([xlim_min,xlim_max])
+plt.ylim([ylim_min,ylim_max])
+# plt.xlim([2.9,7.1])
+# plt.ylim([-0.1,9])
 
 
 plt.figure()
