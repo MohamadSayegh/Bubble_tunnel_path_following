@@ -1,15 +1,11 @@
 import numpy as np
-from numpy import pi, cos, sin
+from numpy import pi
 import matplotlib.pyplot as plt
 from scipy import interpolate
-from pylab import *
+
 
 
 def generate_bubbles(global_path,Bspline_obj,occupied_positions_x,occupied_positions_y):
-    
-    #----------------------------------------------------------------------------#
-    #                           Creating the Bubbles                             #
-    #----------------------------------------------------------------------------#
     
     npoints =  500  #numbr of points of every circle
     ts      =  np.linspace(0, 2*pi, npoints) #for creating circles points
