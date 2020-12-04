@@ -67,14 +67,14 @@ def create_global_path(path_option):
 
         # Manually design the main points of the path
         path_x = np.linspace(0, 9, 20)
-        path_y = [ 0.0, 5.0, 10.0, 11.0, 11.0, 11.0, 11.0, 6.0, 0.1, 0.1,
+        path_y = [ 0.0, 5.0, 9.0, 10.0, 10.0, 10.0, 9.0, 6.0, 0.1, 0.1,
                    0.1, 0.1, 1.0, 1.0, 6.0, 9.0, 9.0, 9.0, 9.0, 9.0 ]
         
         
         # Interpolate the path using a spline
         # this interpolation will now be considered the 'original global path'
         Bspline_obj, u = interpolate.splprep([path_x,path_y], u = None, s = 1)
-        u = np.linspace(0,1,100)
+        u = np.linspace(0,1,200)
         global_path = interpolate.splev(u, Bspline_obj)
         
         

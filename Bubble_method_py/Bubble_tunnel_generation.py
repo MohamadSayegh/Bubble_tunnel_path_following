@@ -224,7 +224,16 @@ def plotting(initial_pos_x, end_goal_x, global_path, occupied_positions_x, occup
     plt.ylabel('y [m]')
     plt.xlim([2.8,7])
     plt.ylim([-0.2,5])
-        
+    
+    plt.figure()
+    plt.plot(global_path[0], global_path[1], 'r-')
+    plt.plot(occupied_positions_x, occupied_positions_y, 'o', markersize= 2)
+    plt.legend(['original global path','Occupied Positions'])
+    plt.title('Global Path')
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.xlim([xlim_min,xlim_max])
+    plt.ylim([ylim_min,ylim_max])
         
         
     

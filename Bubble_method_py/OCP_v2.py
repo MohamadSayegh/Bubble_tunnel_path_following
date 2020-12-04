@@ -68,7 +68,7 @@ option 2/1 doesnt work = its is a very hard situiation
                        = the bubbles stop generating (side effect of no wall crossing technique)
 
 ''' 
-obstacles_option = 2 
+obstacles_option = 1 
 path_option = 1
 
 occupied_positions_x, occupied_positions_y = create_obstacles(obstacles_option)
