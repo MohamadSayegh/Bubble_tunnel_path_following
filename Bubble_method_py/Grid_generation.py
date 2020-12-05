@@ -66,14 +66,22 @@ def create_global_path(path_option):
     if path_option == 1:
 
         # Manually design the main points of the path
-        path_x = np.linspace(0, 9, 20)
-        path_y = [ 0.0, 5.0, 9.0, 10.0, 10.0, 10.0, 9.0, 6.0, 0.1, 0.1,
-                   0.1, 0.1, 1.0, 1.0, 6.0, 9.0, 9.0, 9.0, 9.0, 9.0 ]
+        path_x = np.linspace(0, 9, 37)
+        
+        #  path_x =  array([0.  , 0.25, 0.5 , 0.75, 1.  , 1.25, 1.5 , 1.75, 2.  , 2.25, 2.5 ,
+        #                   2.75, 3.  , 3.25, 3.5 , 3.75, 4.  , 4.25, 4.5 , 4.75, 5.  , 5.25,
+        #                   5.5 , 5.75, 6.  , 6.25, 6.5 , 6.75, 7.  , 7.25, 7.5 , 7.75, 8.  ,
+        #                   8.25, 8.5 , 8.75, 9.  ])
+        
+        path_y = [ 0.    ,  2.0   , 4.0   , 6.0   , 8.0   , 9.8   , 9.8   ,  9.8  ,  9.8   ,  9.8  ,  9.8   ,
+                   9.8   ,  9.0   , 8.0   , 3.0   , 2.0   , 1.0   , 0.1   ,  0.1   , 0.1   ,  0.1   , 0.1   ,
+                   0.1   ,  0.1   , 0.1   , 4.0   , 5.0   , 6.0   , 9.0   ,  9.0   , 9.0   ,  9.0   , 9.0   ,
+                   9.0   ,  9.0   , 9.0   , 9.0 ]
         
         
         # Interpolate the path using a spline
         # this interpolation will now be considered the 'original global path'
-        Bspline_obj, u = interpolate.splprep([path_x,path_y], u = None, s = 1)
+        Bspline_obj, u = interpolate.splprep([path_x,path_y], u = None, s = 0)
         u = np.linspace(0,1,200)
         global_path = interpolate.splev(u, Bspline_obj)
         
