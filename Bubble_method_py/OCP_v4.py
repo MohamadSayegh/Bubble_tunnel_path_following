@@ -148,9 +148,6 @@ ocp.subject_to(  sdot1  >=  0)                      #path "increasing"
 ocp.subject_to(  sdot2  >=  0)   
 
 
-#-----------  use the midpoints and radius to create interpolated tunnels
-
-
 #------------ Obscatles avoidance tunnel ---------------------------
 
 bubbles_radii     =  shifted_radii
@@ -164,9 +161,9 @@ tunnel_s1         =  np.linspace(0,1,tlength1)
 ocp.subject_to(ocp.at_tf(s1) == 1)   
 
 
-obs_spline_x = interpolant('x','bspline',[tunnel_s1],bubbles_x      , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-obs_spline_y = interpolant('y','bspline',[tunnel_s1],bubbles_y      , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-obs_spline_r = interpolant('r','bspline',[tunnel_s1],bubbles_radii  , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+obs_spline_x = interpolant('obs_spline_x','bspline',[tunnel_s1],bubbles_x      , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+obs_spline_y = interpolant('obs_spline_y','bspline',[tunnel_s1],bubbles_y      , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+obs_spline_r = interpolant('obs_spline_r','bspline',[tunnel_s1],bubbles_radii  , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
 
 
 #---------------------- Path Tunnel avoidance ----------------------
@@ -183,8 +180,8 @@ tunnel_s2      =  np.linspace(0,1,tlength2)
 
 ocp.subject_to(ocp.at_tf(s2) < 1)
 
-path_spline_x = interpolant('x','bspline', [tunnel_s2], path_x, {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-path_spline_y = interpolant('y','bspline', [tunnel_s2], path_y, {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+path_spline_x = interpolant('path_spline_x' , 'bspline', [tunnel_s2], path_x, {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+path_spline_y = interpolant('path_spline_y' , 'bspline', [tunnel_s2], path_y, {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
 
 
 
@@ -224,7 +221,7 @@ ocp.set_initial(v , 0.0)
 ocp.set_initial(w , 0.0)
 
 
-#---------------- Slack variables for soft constraints -------------------
+#----------------  constraints -------------------
 
 tolerance = 3  #adding this tolerance has reduced solution time and also gave better solution, but at tight areas it should not work
 
