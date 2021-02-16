@@ -30,15 +30,15 @@ from scipy import interpolate
 from pylab import *
 from casadi import Function, linspace, vertcat, horzcat, DM, interpolant, sum1, MX, hcat, sumsqr
 from rockit import *
-
-import rockit
-print(rockit)
-
-
 from rockit import Ocp , FreeTime, MultipleShooting
 from MPC_Bubble_tunnel_generation_v2 import generate_bubbles_mpc_v2, plotting
 from MPC_Grid_generation import create_obstacles_mpc, create_global_path_mpc
 from Bubble_tunnel_generation_v2 import create_tunnel
+
+
+#---------------- Need to run this first 
+# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"/home/mohamad/acados/lib"
+# export ACADOS_SOURCE_DIR="/home/mohamad/acados"
 
 
 global_end_goal_x       =    9     #position of initial and end point
@@ -61,7 +61,7 @@ path_horizon      = 1
 
 ocp = Ocp(T = 10.0)       
 
-Nsim    = 100        #max allowed iterations   
+Nsim    = 10        #max allowed iterations   
 N       = 5
 
 occupied_positions_x , occupied_positions_y = create_obstacles_mpc(obstacles_option,initial_pos_x,initial_pos_y,obs_horizon)
@@ -417,9 +417,9 @@ for i in range(Nsim):
     ocp.set_value( end_goal_y, global_path_y[-1])
     
     
-    #initial guess
-    # ocp.set_initial(x,       global_path_x) 
-    # ocp.set_initial(y,       global_path_y) 
+    #-------------- initial guess
+    ocp.set_initial(x,       global_path_x) 
+    ocp.set_initial(y,       global_path_y) 
 
     
     #----------------  Simulate dynamic system --------------------------------
@@ -436,20 +436,20 @@ for i in range(Nsim):
 
 
     #------------------------ Plot result
-    shifted_feasiblebubbles_x = []
-    shifted_feasiblebubbles_y = []
-    for k in range (0, len(shifted_midpoints_x)):
-            shifted_feasiblebubbles_x.append(shifted_midpoints_x[k] + shifted_radii[k]*np.cos(ts))
-            shifted_feasiblebubbles_y.append(shifted_midpoints_y[k] + shifted_radii[k]*np.sin(ts))
+    # shifted_feasiblebubbles_x = []
+    # shifted_feasiblebubbles_y = []
+    # for k in range (0, len(shifted_midpoints_x)):
+    #         shifted_feasiblebubbles_x.append(shifted_midpoints_x[k] + shifted_radii[k]*np.cos(ts))
+    #         shifted_feasiblebubbles_y.append(shifted_midpoints_y[k] + shifted_radii[k]*np.sin(ts))
 
-    plt.plot(x_sol, y_sol, 'ro')
-    plt.plot(shifted_feasiblebubbles_x, shifted_feasiblebubbles_y, 'ro', markersize = 0.5)
-    plt.plot(occupied_positions_x,occupied_positions_y,'bo',markersize = 1.5)
-    plt.plot(global_path_x, global_path_y, 'g--')
-    plt.plot(x_sol[0],y_sol[0], 'bx', markersize = 5)
-    plt.xlim([xlim_min,xlim_max])
-    plt.ylim([ylim_min,ylim_max])
-    plt.pause(0.001)
+    # plt.plot(x_sol, y_sol, 'ro')
+    # plt.plot(shifted_feasiblebubbles_x, shifted_feasiblebubbles_y, 'ro', markersize = 0.5)
+    # plt.plot(occupied_positions_x,occupied_positions_y,'bo',markersize = 1.5)
+    # plt.plot(global_path_x, global_path_y, 'g--')
+    # plt.plot(x_sol[0],y_sol[0], 'bx', markersize = 5)
+    # plt.xlim([xlim_min,xlim_max])
+    # plt.ylim([ylim_min,ylim_max])
+    # plt.pause(0.001)
 
 
     #------------------------- Solve the optimization problem
