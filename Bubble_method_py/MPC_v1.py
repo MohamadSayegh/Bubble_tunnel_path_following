@@ -1,12 +1,13 @@
 """
-Created on Dec 04
+Created on Dec 12
 
 Ninja Robot Thesis
 
 @author: Mohamad Sayegh
 
-first trial of MPC
+MPC 
 
+using path parameters
 
 """
 
@@ -19,59 +20,64 @@ from pylab import *
 from casadi import Function, linspace, vertcat, horzcat, DM, interpolant, sum1, MX, hcat, sumsqr
 from rockit import *
 from rockit import Ocp , FreeTime, MultipleShooting
-from Bubble_tunnel_generation_v2 import generate_bubbles_v2, plotting_v2
-from Grid_generation import create_obstacles, create_global_path
-
-#-------------------------------------------------------------------------------#
-#                   Generate Grid and Random Obstacles                          #
-#-------------------------------------------------------------------------------#
-
-end_goal_x      =   9;     #position of initial and end point
-end_goal_y      =   9;
-initial_pos_x   =   0;
-initial_pos_y   =   0;
-xlim_min        =   -0.5;  #xlim and ylim of plots
-xlim_max        =   10.5;
-ylim_min        =   -2;
-ylim_max        =   12;
-n               =   10;    #size of square grid
+from MPC_Bubble_tunnel_generation_v2 import generate_bubbles_mpc_v2, plotting
+from MPC_Grid_generation import create_obstacles_mpc, create_global_path_mpc
+from Bubble_tunnel_generation_v2 import create_tunnel
 
 
-
-obstacles_option = 1 
-path_option = 1
-
-
-
-occupied_positions_x, occupied_positions_y = create_obstacles(obstacles_option)
-Bspline_obj, global_path = create_global_path(path_option)
-
-#----------------------------------------------------------------------------#
-#                           Creating the Bubbles                             #
-#----------------------------------------------------------------------------#
+global_end_goal_x       =    9     #position of initial and end point
+global_end_goal_y       =    9
+initial_pos_x           =    0
+initial_pos_y           =    0
+xlim_min                =   -1     #xlim and ylim of plots
+xlim_max                =    11
+ylim_min                =   -2
+ylim_max                =    12
+n                       =    10    #size of square grid
 
 
-#using new function 
+# option 2,2 works with N = 5 T = 10
+obstacles_option  = 2
+path_option       = 2
 
-shifted_midpoints_x, shifted_midpoints_y, shifted_radii\
-                = generate_bubbles_v2(global_path[0],global_path[1],occupied_positions_x,occupied_positions_y)
+obs_horizon       = 100
+path_horizon      = 1
 
+ocp = Ocp(T = 10.0)       
 
-plotting_v2(initial_pos_x, end_goal_x, global_path, occupied_positions_x, occupied_positions_y,\
-                xlim_min, xlim_max, ylim_min, ylim_max,\
-                shifted_midpoints_x, shifted_midpoints_y, shifted_radii)
-    
-    
-#-------------------------------------------------------------------------------#
-#                   Define the optimal control problem                          #
-#-------------------------------------------------------------------------------#
+Nsim    = 100        #max allowed iterations   
+N       = 5
+
+occupied_positions_x , occupied_positions_y = create_obstacles_mpc(obstacles_option,initial_pos_x,initial_pos_y,obs_horizon)
+
+global_path_x, global_path_y, Bspline_obj   = create_global_path_mpc(path_option,initial_pos_x,initial_pos_y,path_horizon, N)
+
+shifted_midpoints_x, shifted_midpoints_y, shifted_radii = generate_bubbles_mpc_v2(global_path_x, global_path_y,occupied_positions_x,occupied_positions_y)
 
 
 
-ocp = Ocp(T = 60.0)       
+#select N points for path spline
+Bspline_obj, u = interpolate.splprep([global_path_x,global_path_y], u = None, s = 0)
+u = np.linspace(0,1,N)
+global_path = interpolate.splev(u, Bspline_obj)
+global_path_x = np.array(global_path[0])
+global_path_y = np.array(global_path[1])
 
-Nsim    = 10            # how much samples to simulate
-N       = 20            # number of control intervals
+
+
+i = len(shifted_midpoints_x)
+while len(shifted_midpoints_x) < N:
+    shifted_midpoints_x.append(global_path_x[i])
+    shifted_midpoints_y.append(global_path_y[i])
+    shifted_radii.append(1)
+    i = i + 1
+               
+
+global_path_x           = global_path_x[0:N]
+global_path_y           = global_path_y[0:N]
+shifted_midpoints_x     = shifted_midpoints_x[0:N]
+shifted_midpoints_y     = shifted_midpoints_y[0:N]
+shifted_radii           = shifted_radii[0:N]
 
 
 # Logging variables
@@ -86,21 +92,27 @@ w_hist              = np.zeros((Nsim+1, N+1))
 sdot_path_hist      = np.zeros((Nsim+1, N+1))
 sdot_obs_hist       = np.zeros((Nsim+1, N+1))
 
-# System model
+
+
+
+#------------------------- System model
+
 x       =  ocp.state()
 y       =  ocp.state()
 theta   =  ocp.state()
 v       =  ocp.control()
 w       =  ocp.control()
 
-#path parameters 
+#--------------------------path parameters 
+
 s_path       =  ocp.state()
 sdot_path    =  ocp.control()
 
 s_obs        =  ocp.state()
 sdot_obs     =  ocp.control()
 
-#ODEs
+#-----------------------------ODEs
+
 ocp.set_der(x            ,        v*cos(theta))
 ocp.set_der(y            ,        v*sin(theta))
 ocp.set_der(theta        ,        w)
@@ -113,23 +125,48 @@ ocp.set_der(s_obs        ,        sdot_obs)
 #-------------------------------------------------------------------------------#
 
 
+#------------------------- Constraints on initial point
 
-# Constraints on initial point
-nx  = 5 #number of states
-X_0 = ocp.parameter(nx)
+
+X_0 = ocp.parameter(5)
 X   = vertcat(x, y, theta, s_path, s_obs)
 
 ocp.subject_to(ocp.at_t0(X) == X_0)
+
 current_X = vertcat(initial_pos_x,initial_pos_y,0.0,0.0,0.0) 
 ocp.set_value(X_0, current_X)
 
-# Constraints at the final point  = maybe we hsould not add this in the MPC = every MPC iteration should have another final point!
-# ocp.subject_to(ocp.at_tf(x) == end_goal_x)
-# ocp.subject_to(ocp.at_tf(y) == end_goal_y)
-# ocp.subject_to(ocp.at_tf(theta) == 0.0)
+
+#------------------------- Constraints on Final point
+
+global_goal = vertcat(global_end_goal_x,global_end_goal_y) 
 
 
-#constraints on controls 
+
+
+end_goal_x = ocp.parameter(1)
+end_goal_y = ocp.parameter(1)
+
+ocp.set_value( end_goal_x, global_path_x[-1])
+ocp.set_value( end_goal_y, global_path_y[-1])
+
+slack_tf_x = ocp.variable()
+slack_tf_y = ocp.variable()
+
+ocp.subject_to(slack_tf_x >= 0)
+ocp.subject_to(slack_tf_y >= 0)
+
+ocp.subject_to(-slack_tf_x <= ((ocp.at_tf(x) - end_goal_x) <= slack_tf_x))
+ocp.subject_to(-slack_tf_y <= ((ocp.at_tf(y) - end_goal_y) <= slack_tf_y))
+
+ocp.add_objective(2*(slack_tf_x + slack_tf_y))
+
+
+
+
+
+#----------------------------- constraints on controls 
+
 ocp.subject_to(  0          <= ( v  <= 1   ))
 ocp.subject_to( -pi         <= ( w  <= pi  ))
 ocp.subject_to( sdot_path   >=   0)        
@@ -137,118 +174,98 @@ ocp.subject_to( sdot_obs    >=   0)
 
 
 
-#------------ Obscatles avoidance tunnel ---------------------------
+#---------------------- Obscatles avoidance tunnel 
 
-bubbles_radii     =  shifted_radii
-bubbles_x         =  shifted_midpoints_x
-bubbles_y         =  shifted_midpoints_y
-tlength1          =  len(bubbles_x)
-tunnel_s1         =  np.linspace(0,1,tlength1) 
+bubbles_x       =  ocp.parameter(1, grid = 'control')
+bubbles_y       =  ocp.parameter(1, grid = 'control')
+bubbles_radii   =  ocp.parameter(1, grid = 'control')
 
+ocp.set_value(bubbles_x, shifted_midpoints_x)
+ocp.set_value(bubbles_y, shifted_midpoints_y)
+ocp.set_value(bubbles_radii,   shifted_radii)
 
+tlength1        =  len(shifted_midpoints_x)
+tunnel_s1       =  np.linspace(0,1,tlength1) 
 
 ocp.subject_to(ocp.at_tf(s_obs) == 1)   
 
-
-obs_spline_x = interpolant('x','bspline',[tunnel_s1],bubbles_x      , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-obs_spline_y = interpolant('y','bspline',[tunnel_s1],bubbles_y      , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-obs_spline_r = interpolant('r','bspline',[tunnel_s1],bubbles_radii  , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-
-
-#---------------------- Path Tunnel avoidance ----------------------
-
-#re-evaluate the path only in same length as bubbles data
+obs_spline_x = interpolant('x','bspline',[tunnel_s1], 1  , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+obs_spline_y = interpolant('y','bspline',[tunnel_s1], 1  , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+obs_spline_r = interpolant('r','bspline',[tunnel_s1], 1  , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
 
 
-path_x         =  global_path[0]
-path_y         =  global_path[1]
-tlength2       =  len(path_x)
+#---------------------------------- Path Tunnel avoidance 
+
+
+
+path_x          =  ocp.parameter(1, grid = 'control')
+path_y          =  ocp.parameter(1, grid = 'control')
+
+ocp.set_value(path_x, global_path_x)
+ocp.set_value(path_y, global_path_y)
+
+
+tlength2       =  len(global_path_x)
 tunnel_s2      =  np.linspace(0,1,tlength2) 
 
+ocp.subject_to(ocp.at_tf(s_path) == 1)
 
 
-ocp.subject_to(ocp.at_tf(s_path) < 1)
-
-path_spline_x = interpolant('x','bspline', [tunnel_s2], path_x, {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
-path_spline_y = interpolant('y','bspline', [tunnel_s2], path_y, {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+path_spline_x = interpolant('x','bspline', [tunnel_s2], 1   , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
+path_spline_y = interpolant('y','bspline', [tunnel_s2], 1   , {"algorithm": "smooth_linear","smooth_linear_frac":0.49})
 
 
-# ------------------------ Initial guess ------------------------
-
-# we want the initial guesss to be = the global path 
-
-#create global path N points
-u = np.linspace(0,1,N)
-global_path_guess           = interpolate.splev(u, Bspline_obj)
-global_path_guess_x         = np.array(global_path_guess[0])
-# global_path_guess_x         = np.linspace(initial_pos_x, end_goal_x, N)
-# global_path_guess_y         = np.array(global_path_guess[1])
-global_path_guess_y         = np.linspace(initial_pos_y, end_goal_y, N)   #for some reason this is better for y
-global_path_guess_theta     = np.zeros(N)
+# -------------------------------- Initial guess 
 
 
-ocp.set_initial(x,       global_path_guess_x) 
-ocp.set_initial(y,       global_path_guess_y) 
-# ocp.set_initial(theta,   global_path_guess_theta)  #doesnt have an effect
+
 
 #path parameters
-s_obs_guess = np.linspace(tunnel_s1[0],tunnel_s1[-3], N)
-sdot_obs_guess = (tunnel_s1[-1]-tunnel_s1[0])/tlength1 
+s_obs_guess = np.linspace(0,1,N)
+s_path_guess = np.linspace(0,1,N)
 
 ocp.set_initial(s_obs, s_obs_guess) 
-ocp.set_initial(sdot_obs, sdot_obs_guess)
-
-s_path_guess = np.linspace(tunnel_s2[0],tunnel_s2[-3], N)
-sdot_path_guess = (tunnel_s2[-1]-tunnel_s2[0])/tlength2
-
 ocp.set_initial(s_path , s_path_guess )
-ocp.set_initial(sdot_path_guess, sdot_path_guess)
+
 
 #constraints on control inputs have a slight positive effect on solution time
-ocp.set_initial(v , 0.0)
+ocp.set_initial(v , 0.5)
 ocp.set_initial(w , 0.0)
 
 
 
-#----------------  Obstacle avoidance constraints -------------------
+#---------------------------  Obstacle avoidance constraints 
 
-tolerance = 3  #adding this tolerance has reduced solution time and also gave better solution, but at tight areas it should not work
+tolerance = 0 
 
 #stay in bubbles as much as possible
 
-ocp.subject_to( (  ( x - obs_spline_x(s_obs) )**2 + ( y-obs_spline_y(s_obs) )**2  < (tolerance + obs_spline_r(s_obs)**2 ))  )
+ocp.subject_to( (  ( x - obs_spline_x(s_obs,bubbles_x) )**2 + ( y-obs_spline_y(s_obs,bubbles_y) )**2 < (tolerance + obs_spline_r(s_obs,bubbles_radii)**2 )) ) 
 
-# ocp.subject_to( (  ( x - obs_spline_x(ocp.next(s1)) )**2 + ( y-obs_spline_y(ocp.next(s1)))**2  <  (tolerance + obs_spline_r(ocp.next(s1))**2 ) ) )
- 
-
-
-
-# ------------- Objective function ----------------------------------------
+# -------------------------------------- Objective function 
 
 #path following
-ocp.add_objective(ocp.integral((x - path_spline_x(s_path))**2 + (y-path_spline_y(s_path))**2))    #not enough by itself to make path following a priority
 
-# ocp.add_objective(-ocp.at_tf(s2))
+ocp.add_objective( 1*ocp.integral((x - path_spline_x(s_path, path_x))**2 + (y-path_spline_y(s_path,path_y))**2))    #not enough by itself to make path following a priority
 
+# ocp.add_objective(-1*ocp.at_tf(s_path))
 
-
-# ------------- Solution method------------------------------------------
-options = {"ipopt": {"print_level": 0}}
-options["expand"] = True
+# ----------------------------------- Solution method
+options = {"ipopt": {"print_level": 5}}
+options["expand"] = False
 options["print_time"] = True
 ocp.solver('ipopt', options)
 
 
-# Make it concrete for this ocp
-# N -- number of control intervals
-# M -- number of integration steps per control interval
-# grid -- could specify e.g. UniformGrid() or GeometricGrid(4)
-ocp.method(MultipleShooting(N=N,M=1,intg='rk'))
+# Multiple shooting
+ocp.method(MultipleShooting(N=N,M=3,intg='rk'))
 
 
-#-------------------------------------------------------------------------------#
-#                          OCP Solution and Results                             #
-#-------------------------------------------------------------------------------#
+ocp.set_initial(x,       global_path_x) 
+ocp.set_initial(y,       global_path_y) 
+
+
+#-------------------------------- OCP Solution and Results                             
 
 
 try:
@@ -259,42 +276,12 @@ except:
     sol = ocp.non_converged_solution
 
 
-plt.figure()
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
-plt.xlim([xlim_min,xlim_max])
-plt.ylim([ylim_min,ylim_max])
-ts, s1 = sol.sample(s_obs, grid='integrator',refine = 500)
-
-ts = np.linspace(0,2*np.pi,1000)
-xspline_obs = np.array(obs_spline_x(s1))
-yspline_obs = np.array(obs_spline_y(s1))
-rspline_obs = np.array(obs_spline_r(s1))
-for i in range(s1.shape[0]): plt.plot(xspline_obs[i]+rspline_obs[i]*cos(ts),yspline_obs[i]+rspline_obs[i]*sin(ts),'r-',markersize = 0.5)
-
-ts, s2 = sol.sample(s_path, grid='integrator',refine = 200)
-ts = np.linspace(0,2*np.pi,1000)
-xspline_path = np.array(path_spline_x(s2))
-yspline_path = np.array(path_spline_y(s2))
-plt.plot(xspline_path, yspline_path, 'g--')
-
-tsol, xsol = sol.sample(x, grid='control')
-tsol, ysol = sol.sample(y, grid='control')
-plt.plot(xsol, ysol,'bo')
-tsol, xsol = sol.sample(x, grid='integrator',refine=10)
-tsol, ysol = sol.sample(y, grid='integrator',refine=10)
-plt.plot(xsol, ysol, '--')
-plt.plot(occupied_positions_x,occupied_positions_y,'bo',markersize = 1.5)
-plt.title('OCP solution')
-plt.xlim([xlim_min,xlim_max])
-plt.ylim([ylim_min,ylim_max])
 
 
 
 #-------------------------------------------------------------------------------#
 #                                   MPC                                         #
 #-------------------------------------------------------------------------------#
-
 
 
 # Get discretised dynamics as CasADi function to simulate the system
@@ -323,24 +310,133 @@ sdot_path_hist[0,:]     = sdot_path_sol
 sdot_obs_hist[0,:]      = sdot_obs_sol
 
 
-# Simulate the MPC solving the OCP (with the updated state) several times
+clearance = 0.1
 
+
+npoints =  100  #numbr of points of every circle
+ts      =  np.linspace(0, 2*np.pi, npoints)
+    
+
+plt.figure()
+plt.title('MPC solution')
+
+    
+    
 for i in range(Nsim):
+    
+    
     print("timestep", i+1, "of", Nsim)
     
-    # Combine first control inputs
+    
+    #------------------- Update initial position ------------------------------
+    
+    # Combine control inputs
     current_U = vertcat(v_sol[0], w_sol[0] , sdot_path_sol[0], sdot_obs_sol[0])
 
     # Simulate dynamics (applying the first control input) and update the current state
     current_X = Sim_system_dyn(x0=current_X, u=current_U, T=t_sol[1]-t_sol[0])["xf"]
     
+    print( f' x: {current_X[0]}' )
+    print( f' y: {current_X[1]}' )
+    # print( f' theta: {current_X[2]}' )
+    
+    initial_pos_x = double(current_X[0])
+    initial_pos_y = double(current_X[1])
+    
+   
+    #------------------------- Generate grid and path -------------------------
+
+    global_path_x, global_path_y, Bspline_obj = create_global_path_mpc(path_option,initial_pos_x,initial_pos_y,path_horizon, N)
+    
+
+    #----------------- get obstacles ------------------------------------------
+    
+    occupied_positions_x , occupied_positions_y = create_obstacles_mpc(obstacles_option,initial_pos_x,initial_pos_y,obs_horizon)
+    
+    #---------------- Creating the Bubbles-------------------------------------
+
+
+    shifted_midpoints_x, shifted_midpoints_y, shifted_radii = generate_bubbles_mpc_v2(global_path_x, global_path_y,occupied_positions_x,occupied_positions_y)
+    
+    iter = len(shifted_midpoints_x)
+    while len(shifted_midpoints_x) < len(global_path_x):
+        shifted_midpoints_x.append(global_path_x[iter])
+        shifted_midpoints_y.append(global_path_y[iter])
+        shifted_radii.append(1)
+        iter = iter + 1
+    
+    # --------------- select N points for path spline-------------------------
+    Bspline_obj, u = interpolate.splprep([global_path_x,global_path_y], u = None, s = 0)
+    u = np.linspace(0,1,N)
+    global_path = interpolate.splev(u, Bspline_obj)
+    global_path_x = np.array(global_path[0])
+    global_path_y = np.array(global_path[1])
+
+    #------------------- Updating Tunnels ------------------------------------
+
+    global_path_x           = global_path_x[0:N]
+    global_path_y           = global_path_y[0:N]
+    shifted_midpoints_x     = shifted_midpoints_x[0:N]
+    shifted_midpoints_y     = shifted_midpoints_y[0:N]
+    shifted_radii           = shifted_radii[0:N]
+
+    ocp.set_value(path_x, global_path_x)
+    ocp.set_value(path_y, global_path_y)
+    
+    ocp.set_value(bubbles_x, shifted_midpoints_x)
+    ocp.set_value(bubbles_y, shifted_midpoints_y)
+    ocp.set_value(bubbles_radii,   shifted_radii)
+    
+    ocp.set_value( end_goal_x, global_path_x[-1])
+    ocp.set_value( end_goal_y, global_path_y[-1])
+    
+    
+    #initial guess
+    ocp.set_initial(x,       global_path_x) 
+    ocp.set_initial(y,       global_path_y) 
+
+    
+    #----------------  Simulate dynamic system --------------------------------
+    
+
+    
+    error = sumsqr(current_X[0:2] - global_goal)
+    if error < clearance: 
+        break   #solution reached the global end goal 
+    
     # Set the parameter X0 to the new current_X
     ocp.set_value(X_0, current_X)
+    
 
-    # Solve the optimization problem
-    sol = ocp.solve()
 
-    # Log data for post-processing  
+    #------------------------ Plot result
+    shifted_feasiblebubbles_x = []
+    shifted_feasiblebubbles_y = []
+    for k in range (0, len(shifted_midpoints_x)):
+            shifted_feasiblebubbles_x.append(shifted_midpoints_x[k] + shifted_radii[k]*np.cos(ts))
+            shifted_feasiblebubbles_y.append(shifted_midpoints_y[k] + shifted_radii[k]*np.sin(ts))
+
+    plt.plot(x_sol, y_sol, 'ro')
+    # plt.plot(shifted_feasiblebubbles_x, shifted_feasiblebubbles_y, 'ro', markersize = 0.5)
+    plt.plot(occupied_positions_x,occupied_positions_y,'bo',markersize = 1.5)
+    plt.plot(global_path_x, global_path_y, 'g--')
+    plt.plot(x_sol[0],y_sol[0], 'bx', markersize = 5)
+    plt.xlim([xlim_min,xlim_max])
+    plt.ylim([ylim_min,ylim_max])
+    plt.pause(0.001)
+
+
+    #------------------------- Solve the optimization problem
+
+    try:
+        sol = ocp.solve()
+    except:
+        #failed_to_converge = True
+        ocp.show_infeasibilities(1e-6)
+        sol = ocp.non_converged_solution
+
+    #-------------------------- Log data for next iteration  
+    
     t_sol, x_sol            = sol.sample(x,           grid='control')
     t_sol, y_sol            = sol.sample(y,           grid='control')
     t_sol, theta_sol        = sol.sample(theta,       grid='control')
@@ -352,6 +448,7 @@ for i in range(Nsim):
     t_sol, sdot_obs_sol     = sol.sample(sdot_obs,    grid='control')
  
     
+    # for post processing
     time_hist[i+1,:]          = t_sol
     x_hist[i+1,:]             = x_sol
     y_hist[i+1,:]             = y_sol
@@ -364,50 +461,51 @@ for i in range(Nsim):
     sdot_obs_hist[i+1,:]      = sdot_obs_sol
     
 
-    ocp.set_initial(x, x_sol)
-    ocp.set_initial(y, y_sol)
-    ocp.set_initial(theta, theta_sol)
-    ocp.set_initial(s_path, s_path_sol)
-    ocp.set_initial(s_obs, s_obs_sol)
-    ocp.set_initial(v, v_sol)
-    ocp.set_initial(w, w_sol)
-    ocp.set_initial(sdot_path, sdot_path_sol)
-    ocp.set_initial(sdot_obs, sdot_obs_sol)
 
-
-
+    
 
 # -------------------------------------------
 #          Plot the results
 # -------------------------------------------
 
-T_start = 0
-T_end   = sum(time_hist[k,1] - time_hist[k,0] for k in range(Nsim+1))
+#global path from initial to end point
+global_path_x, global_path_y, Bspline_obj = create_global_path_mpc(path_option,0,0,1000,30)
 
 fig = plt.figure()
 ax2 = plt.subplot(1, 1, 1)
 ax2.plot(global_path[0], global_path[1], '--')
-ax2.plot(occupied_positions_x, occupied_positions_y, 'bo')
-ax2.plot(shifted_midpoints_x,shifted_midpoints_y,'rx')
+plt.plot(occupied_positions_x,occupied_positions_y,'ko',markersize = 2)
 ax2.plot(x_hist[0,0], y_hist[0,0], 'b-')
 ax2.set_xlabel('x pos [m]')
 ax2.set_ylabel('y pos [m]')
-
-for k in range(Nsim+1):
-    ax2.plot(x_hist[k,:], y_hist[k,:], 'b-')
+ax2.set_title('Interations of OCP solutions')
+ax2.plot(x_hist[0:i,0], y_hist[0:i,0], 'ro')  
+for k in range(i):
+    # ax2.plot(x_hist[k,:], y_hist[k,:], 'b-')
     ax2.plot(x_hist[k,:], y_hist[k,:], 'g.')  
-    T_start = T_start + (time_hist[k,1] - time_hist[k,0])
-    plt.pause(0.5)
+plt.savefig('MPC solution with all ocp iterations', dpi=300)
 
 
 
 
+shifted_midpoints_x, shifted_midpoints_y, shifted_radii = generate_bubbles_mpc_v2(global_path_x, global_path_y,occupied_positions_x,occupied_positions_y)   
+tunnel_x, tunnel_y = create_tunnel(shifted_midpoints_x,shifted_midpoints_y,shifted_radii)
+       
 
-
-
-
-
-
+plt.figure()
+plt.plot(x_hist[0:i,0],y_hist[0:i,0], 'bo', markersize = 5)
+plt.plot(x_hist[0:i,0],y_hist[0:i,0], 'b-', markersize = 5)
+plt.plot(8.9,9,'bo', markersize = 12)
+plt.plot(global_path_x, global_path_y, 'g--')
+plt.plot(occupied_positions_x,occupied_positions_y,'ko',markersize = 1.5)
+plt.plot(tunnel_x, tunnel_y, 'ro', markersize = 1)
+plt.legend(['MPC solution points','solution trajectory','end goal',' global path ', 'Obstacles', 'Feasible Bubbles'], loc = "best")
+plt.title('MPC Solution')
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
+plt.xlim([xlim_min,xlim_max])
+plt.ylim([ylim_min,ylim_max])
+plt.savefig('MPC solution', dpi=300)
 
 
 

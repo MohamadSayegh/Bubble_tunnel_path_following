@@ -1,4 +1,4 @@
-from Bubble_tunnel_generation import generate_bubbles
+# from Bubble_tunnel_generation import generate_bubbles
 from Bubble_tunnel_generation_v2 import generate_bubbles_v2
 from Grid_generation import create_obstacles, create_global_path
 from Bubble_tunnel_generation_Mat import defineDiscreteBubbles
@@ -42,9 +42,9 @@ Bspline_obj, global_path = create_global_path(path_option)
 
 start_time = time.time()
 
-# new method
-f_x, f_y,sx,sy,mx, my, r, smx, smy, sr \
-    = generate_bubbles(global_path,Bspline_obj,occupied_positions_x,occupied_positions_y)
+# # new method
+# f_x, f_y,sx,sy,mx, my, r, smx, smy, sr \
+#     = generate_bubbles(global_path,Bspline_obj,occupied_positions_x,occupied_positions_y)
 
 end_time_1 = time.time()
 
