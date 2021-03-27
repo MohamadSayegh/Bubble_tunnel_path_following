@@ -1,0 +1,10 @@
+IPOPT
+
+timestep 23 of 200
+MPC solution time:  15.399999999999993
+Solver execution time:  8.804730653762817
+
+ACADOS
+timestep 22 of 200
+MPC solution time:  14.699999999999994
+Solver execution time:  7.215906381607056
